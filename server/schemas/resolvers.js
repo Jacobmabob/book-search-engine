@@ -5,7 +5,7 @@ const { AuthenticationError } = require('apollo-server-express');
 
 const resolvers = {
   Query: {
-    user: async (parent, { id }) => {
+    me: async (parent, { id }) => {
       return User.findOne({ _id: id }).populate('savedBooks');
     },
   },
@@ -32,9 +32,32 @@ const resolvers = {
         const token = signToken(user);
         return { token, user };
       },
-    //   saveBook: async (parent, {user, params}) => {
-
-    //   }
+      saveBook: async (parent, {user, bookId }, context ) => {
+        if (context.user) {
+          try {
+            const updatedUser = await User.findOneAndUpdate(
+              { _id: user._id },
+              { $addToSet: { savedBooks: bookId } },
+              { new: true, runValidators: true }
+            );
+            return updatedUser
+          } catch (err) {
+            console.log(err);
+            return res.status(400).json(err);
+          }
+        }
+      },
+      removeBook: async (parent, { user, bookId }, context) => {
+        const updatedUser = await User.findOneAndUpdate(
+                { _id: user._id },
+                { $pull: { savedBooks: { bookId: bookId } } },
+                { new: true }
+              );
+              if (!updatedUser) {
+                return res.status(404).json({ message: "Couldn't find user with this id!" });
+              }
+              return updatedUser;
+      }
   },
 }
 
