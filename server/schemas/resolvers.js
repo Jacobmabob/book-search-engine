@@ -5,8 +5,8 @@ const { AuthenticationError } = require('apollo-server-express');
 
 const resolvers = {
   Query: {
-    me: async (parent, { id }) => {
-      return User.findOne({ _id: id }).populate('savedBooks');
+    me: async (parent, args, context) => {
+      return User.findOne({ _id: context.user._id }).populate('savedBooks');
     },
   },
   Mutation: {
@@ -32,32 +32,26 @@ const resolvers = {
         const token = signToken(user);
         return { token, user };
       },
-      saveBook: async (parent, {user, bookId }, context ) => {
+      saveBook: async (parent, { bookToSave }, context ) => {
         if (context.user) {
-          try {
-            const updatedUser = await User.findOneAndUpdate(
+            return User.findOneAndUpdate(
               { _id: user._id },
-              { $addToSet: { savedBooks: bookId } },
+              { $addToSet: { savedBooks: bookToSave } },
               { new: true, runValidators: true }
             );
-            return updatedUser
-          } catch (err) {
-            console.log(err);
-            return res.status(400).json(err);
           }
-        }
-      },
-      removeBook: async (parent, { user, bookId }, context) => {
-        const updatedUser = await User.findOneAndUpdate(
-                { _id: user._id },
-                { $pull: { savedBooks: { bookId: bookId } } },
-                { new: true }
-              );
-              if (!updatedUser) {
-                return res.status(404).json({ message: "Couldn't find user with this id!" });
-              }
-              return updatedUser;
-      }
+        },
+        removeBook: async (parent, { bookId }, context) => {
+          if (context.user) {
+            return User.findOneAndUpdate(
+              { _id: context.user._id },
+              { $pull: { savedBooks: { bookId: bookId } } },
+              { new: true }
+            )
+          }
+          
+          throw new AuthenticationError('You need to be logged in!');
+        },
   },
 }
 
